@@ -48,12 +48,6 @@ humidity-to-location map:
         (recur rs x)
         v))))
 
-(get-range-value [[50 98 2] [52 50 48]] 50)
-(map #(get-range-value [[50 98 2] [52 50 48]] %) (range 0 100))
-
-(def almanac {:seed-to-soil (partial get-range-value [[50 98 2] [52 50 48]])})
-((almanac :seed-to-soil) 79)
-
 (defn to-number [x]
   (Long/parseUnsignedLong x))
 
@@ -89,12 +83,71 @@ humidity-to-location map:
 (analyze-almanac data)
 
 ; Part 2
-; 
+(defn cut-range [[a b] [x y]]
+  (cond
+    (and (> a x) (< b y)) (list [x (dec a)] [a b] [(inc b) y])
+    (and (> a x) (<= a y)) (list [x (dec a)] [a y])
+    (and (>= b x) (< b y)) (list [x b] [(inc b) y])
+    :else (list [x y])))
 
-(defn split-range [[a b] x]
-  (list  [a (dec x)] [x b]))
+(cut-range [5 10] [1 4])
+(cut-range [5 10] [1 5])
 
-(defn in-range? [[a b] x]
-  (<= a x b))
+(defn make-range
+  ([s l]   [s (dec (+ s l))])
+  ([[s l]] [s (dec (+ s l))]))
 
-(in-range? [74 87] 77)
+(defn map-range [f [a b]] [(f a) (f b)])
+
+(defn old-process-category [almanac category seed]
+  (let [input  (map (fn [[_ s l]] (make-range s l)) (almanac category))
+        mapper (partial map-range (partial get-range-value (almanac category)))]
+    (loop [[x & xs] input
+           seeds []]
+      (if x
+        (recur xs (concat seeds (cut-range x seed)))
+        (map mapper (distinct seeds))))))
+
+(defn process-category [almanac category seed]
+  (let [input  (map (fn [[_ s l]] (make-range s l)) (almanac category))
+        mapper (partial map-range (partial get-range-value (almanac category)))]
+    (loop [[x & xs] input
+           seeds (list seed)]
+      (if x
+        (recur xs (reduce into (for [s seeds] (cut-range x s))))
+        (map mapper (distinct seeds))))))
+
+(def almanac (parse-data data))
+(def seeds (map make-range (partition 2 (first (almanac :seeds)))))
+(def soils (map (fn [[_ s l]] (make-range s l)) (almanac :seed-to-soil)))
+(def fertilizers (map (fn [[_ s l]] (make-range s l)) (almanac :soil-to-fertilizer)))
+(def water (map (fn [[_ s l]] (make-range s l)) (almanac :water-to-light)))
+(def light (map (fn [[_ s l]] (make-range s l)) (almanac :light-to-temperature)))
+(def soil-map (partial map-range (partial get-range-value (almanac :seed-to-soil))))
+
+(def seed (first seeds))
+
+(def process-seed (partial process-category almanac :seed-to-soil))
+(def process-soil (partial process-category almanac :soil-to-fertilizer))
+(def process-fertilizer (partial process-category almanac :fertilizer-to-water))
+(def process-water (partial process-category almanac :water-to-light))
+(def process-light (partial process-category almanac :light-to-temperature))
+(def process-temperature (partial process-category almanac :temperature-to-humidity))
+(def process-humidity (partial process-category almanac :humidity-to-location))
+
+(->> seeds
+     (map process-seed)
+     (reduce into)
+     (map process-soil)
+     (reduce into)
+     (map process-fertilizer)
+     (reduce into)
+     (map process-water)
+     (reduce into)
+     (map process-light)
+     (reduce into)
+     (map process-temperature)
+     (reduce into)
+     (map process-humidity)
+     (flatten)
+     (reduce min))
