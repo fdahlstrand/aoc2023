@@ -32,29 +32,35 @@
         y (range (inc x) (count galaxies))]
     [(get galaxies x) (get galaxies y)]))
 
-(defn expand-rows [galaxies row-expansion]
+(defn expand-rows [galaxies row-expansion d]
   (loop [[r & rs] row-expansion
          g        galaxies]
     (if r
-      (recur rs (map (fn [[row col]] (if (> row r) [(inc row) col] [row col])) g))
+      (recur rs (map (fn [[row col]] (if (> row r) [(+ row (dec d)) col] [row col])) g))
       g)))
 
-(defn expand-cols [galaxies col-expansion]
+(defn expand-cols [galaxies col-expansion d]
   (loop [[c & cs] col-expansion
          g        galaxies]
     (if c
-      (recur cs (map (fn [[row col]] (if (> col c) [row (inc col)] [row col])) g))
+      (recur cs (map (fn [[row col]] (if (> col c) [row (+ col (dec d))] [row col])) g))
       g)))
 
 ; Part 1
 (def sample (slurp "11/11-sample.txt"))
 (def data (slurp "11/11-data.txt"))
 
-(defn sum-distances [input]
+(defn sum-distances [input d]
   (let [image (parse-image input)
         row-expansion (reverse (find-empty image))
         col-expansion (reverse (find-empty (rotate-image image)))
-        galaxies (into [] (expand-cols (expand-rows (find-galaxies image) row-expansion) col-expansion))]
+        galaxies (into [] (expand-cols (expand-rows (find-galaxies image) row-expansion d) col-expansion d))]
     (reduce + (map (fn [[a b]] (distance a b)) (all-pairs galaxies)))))
 
-(sum-distances data)
+(sum-distances data 2)
+
+; Part 2
+(sum-distances sample 2)
+(sum-distances sample 10)
+(sum-distances sample 100)
+(sum-distances data 1000000)
